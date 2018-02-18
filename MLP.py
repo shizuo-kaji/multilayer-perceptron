@@ -18,12 +18,16 @@ from chainer import training,datasets,iterators
 from chainer.training import extensions
 import numpy as np
 
+from chainerui.extensions import CommandsExtension
+from chainerui.utils import save_args
+
 # activation function
 activ = {
     'tanh': F.tanh,
     'sigmoid': F.sigmoid,
     'linear': F.identity,
     'relu': F.relu,
+    'leaky_relu': F.leaky_relu,
 }
 
 # Neural Network definition
@@ -34,18 +38,30 @@ class MLP(chainer.Chain):
         self.layers = args.layers
         self.out_ch = args.out_ch
         self.dropout_ratio = args.dropout_ratio
+        self.l = []
+        # with self.init_scope():
+        #     self.l.append(L.Linear(None,args.unit))
+        #     for i in range(1,self.layers):
+        #         self.l.append(L.Linear(args.unit,args.unit))
+        #     self.l.append(L.Linear(args.unit,args.out_ch))            
         self.add_link('layer{}'.format(0), L.Linear(None,args.unit))
         for i in range(1,self.layers):
             self.add_link('layer{}'.format(i), L.Linear(args.unit,args.unit))
         self.add_link('fin_layer', L.Linear(args.unit,args.out_ch))
 
     def __call__(self, x, t):
-        h = F.dropout(F.relu(self['layer{}'.format(0)](x)),ratio=self.dropout_ratio)
+        # h = F.dropout(self.activ(self.l[0](x)),ratio=self.dropout_ratio)
+        # for i in range(1,self.layers):
+        #     h = F.dropout(self.activ(self.l[i](h)),ratio=self.dropout_ratio)
+        # h = self.l[-1](h)
+        
+        h = F.dropout(self.activ(self['layer{}'.format(0)](x)),ratio=self.dropout_ratio)
         for i in range(1,self.layers):
             h = F.dropout(self.activ(self['layer{}'.format(i)](h)),ratio=self.dropout_ratio)
-            #h = F.dropout(self.activ(self.bn(self.l2(h))))
         h = self['fin_layer'](h)
+
         if self.out_ch > 1:    # classification
+            h = F.sigmoid(h)
             loss = F.softmax_cross_entropy(h, t)
             chainer.report({'loss': loss, 'accuracy': F.accuracy(h, t)}, self)
         else:   #regression
@@ -78,8 +94,8 @@ def main():
                         help='Directory to output the result')
     parser.add_argument('--out_ch', '-oc', type=int, default=1,
                         help='num of output channels. set to 1 for regression')
-    parser.add_argument('--optimizer', '-op', default='AdaDelta',
-                        help='optimizer {MomentumSGD,AdaDelta,AdaGrad,Adam}')
+    parser.add_argument('--optimizer', '-op', default='MomentumSGD',
+                        help='optimizer {MomentumSGD,AdaDelta,AdaGrad,Adam,RMSprop}')
     parser.add_argument('--resume', '-r', default='',
                         help='Resume the training from snapshot')
     parser.add_argument('--skip_rows', '-sr', type=int, default=1,
@@ -93,7 +109,7 @@ def main():
     parser.add_argument('--test_every', '-t', type=int, default=5,
                         help='use one in every ? entries in the dataset for validation')
     parser.add_argument('--predict', action='store_true')
-    parser.add_argument('--weight_decay', '-w', type=float, default=0,
+    parser.add_argument('--weight_decay', '-w', type=float, default=1e-5,
                         help='weight decay for regularization')
     args = parser.parse_args()
 
@@ -115,6 +131,8 @@ def main():
         optimizer = chainer.optimizers.AdaGrad(lr=0.001, eps=1e-08)
     elif args.optimizer == 'Adam':
         optimizer = chainer.optimizers.Adam(alpha=0.001, beta1=0.9, beta2=0.999, eps=1e-08)
+    elif args.optimizer == 'RMSprop':
+        optimizer = chainer.optimizers.RMSprop(lr=0.01, alpha=0.99, eps=1e-08)
     else:
         print("Wrong optimiser")
         exit(-1)
@@ -136,7 +154,7 @@ def main():
     x = csvdata[:,ind]
     t = csvdata[:,args.label_index][:,np.newaxis]
     print('target column: {}, excluded columns: {}'.format(args.label_index,np.where(ind==False)[0].tolist()))
-    print("data shape: ",x.shape, t.shape)
+    print("variable shape: {}, label shape: {}, label type: {}".format(x.shape, t.shape, label_type))
     x = np.array(x, dtype=np.float32)
     if args.out_ch > 1:
         t = np.array(np.ndarray.flatten(t), dtype=label_type)
@@ -186,6 +204,11 @@ def main():
 
     if args.resume:
         chainer.serializers.load_npz(args.resume, trainer)
+
+    # ChainerUI
+    trainer.extend(CommandsExtension())
+    save_args(args, args.outdir)
+    trainer.extend(extensions.LogReport(trigger=log_interval))
 
     if not args.predict:
         trainer.run()

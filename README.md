@@ -14,6 +14,7 @@ Install [Anaconda](https://www.anaconda.com/download/)
  if you do not have python 3 on your system.
 
 - Chainer 2.0:  `pip install chainer`
+- ChainerUI: `pip install chainerui`
 
 # Example
 Let us try with the famous [Iris Data Set](https://archive.ics.uci.edu/ml/datasets/iris).
