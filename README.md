@@ -43,7 +43,7 @@ same as above but with GPU (working installation of cupy with CUDA support is re
 does not perform training but instead read the trained snapshot from result/snapshot_iter_1200
 and predicts all entries from iris.csv.
 
-`python MLP.py iris.csv -l 1 -sr 0 -sc 0 -dr 0 -nu 80 -nl 3 -t 6`
+`python MLP.py iris.csv -l 1 -sr 0 -sc 0 -dr 0 -nu 80 -nl 3 -oc 1 -t 6`
 reads iris.csv and use every 6 entries for validation and the rest for training.
 Then, it predicts the value of the 1st column (sepal length)
 from columns except for 0th (specified by -sc) and 1st.

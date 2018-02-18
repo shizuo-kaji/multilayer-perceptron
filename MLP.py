@@ -61,7 +61,6 @@ class MLP(chainer.Chain):
         h = self['fin_layer'](h)
 
         if self.out_ch > 1:    # classification
-            h = F.sigmoid(h)
             loss = F.softmax_cross_entropy(h, t)
             chainer.report({'loss': loss, 'accuracy': F.accuracy(h, t)}, self)
         else:   #regression
