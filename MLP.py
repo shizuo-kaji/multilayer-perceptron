@@ -216,18 +216,7 @@ def main():
 
     ## prediction
     print("predicting: {} entries...".format(len(test)))
-    nvar, = test[0][0].shape
-    x = xp.zeros((len(test), nvar)).astype(np.float32)
-    for i in range(len(test)):
-        x[i,:] = xp.asarray(test[i][0])
-    if args.out_ch > 1:
-        t = xp.zeros(len(test)).astype(label_type)
-        for i in range(len(test)):
-            t[i] = xp.asarray(test[i][1])
-    else:
-        t = xp.zeros((len(test), 1)).astype(label_type)
-        for i in range(len(test)):
-            t[i,:] = xp.asarray(test[i][1])
+    x, t = chainer.dataset.concat_examples(test, args.gpu)
 
     with chainer.using_config('train', False):
         y = model(x,t)
@@ -239,17 +228,17 @@ def main():
         p=np.argmax(pred,axis=1)
         result = np.vstack((t,p)).astype(np.int32).transpose()
         print(result.tolist())
-        np.savetxt(args.outdir+"/nn-out.csv", result, delimiter="," ,header="truth,prediction")
+        np.savetxt(args.outdir+"/result.csv", result, delimiter="," ,header="truth,prediction")
     else:
         rmse = F.mean_squared_error(pred,t)
-        result = np.vstack((t[:,0],pred[:,0])).transpose()
-        np.savetxt(args.outdir+"/nn-out.csv", result , delimiter="," ,header="truth,prediction")
+        result = np.vstack((t,pred)).transpose()
+        np.savetxt(args.outdir+"/result.csv", result , delimiter="," ,header="truth,prediction")
         # draw a graph
         left = np.arange(len(test))
-        plt.plot(left, t[:,0], color="royalblue")
-        plt.plot(left, pred[:,0], color="crimson", linestyle="dashed")
+        plt.plot(left, t, color="royalblue")
+        plt.plot(left, pred, color="crimson", linestyle="dashed")
         plt.title("RMSE: {}".format(np.sqrt(rmse.data)))
-        plt.show()
+        plt.savefig(args.outdir+'/result.png')
 
 if __name__ == '__main__':
     main()
